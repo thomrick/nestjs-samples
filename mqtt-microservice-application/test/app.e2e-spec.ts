@@ -14,30 +14,31 @@ describe('MathController (e2e)', () => {
     },
   };
 
-  let server: Server;
+  let mqtt: Server;
   let client: ClientProxy;
   let application: INestMicroservice;
   let module: TestingModule;
 
   beforeEach(async () => {
-    server = await bootstrap();
+    mqtt = await bootstrap();
     client = ClientProxyFactory.create(options);
+    await client.connect();
     module = await Test.createTestingModule({
       imports: [AppModule],
     })
     .compile();
     application = module.createNestMicroservice(options);
-    return await application.listenAsync();
+    await application.listenAsync();
   });
 
   afterEach(async () => {
-    server.close();
+    mqtt.close();
     await client.close();
     await application.close();
     await module.close();
   });
 
   it('sum 1 + 2 = 3', () => {
-    return client.send({ cmd: 'sum' }, [1, 2]).toPromise().then((result: number) => expect(result).toBe(3));
+    return client.send('sum', [1, 2]).toPromise().then((result: number) => expect(result).toBe(3));
   });
 });
