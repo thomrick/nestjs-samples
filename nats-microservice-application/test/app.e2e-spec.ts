@@ -10,7 +10,7 @@ describe('MathController (e2e)', () => {
   const options: any = {
     transport: Transport.NATS,
     options: {
-      url: process.env.NATS_URL,
+      url: 'nats://localhost:4222',
     },
   };
 

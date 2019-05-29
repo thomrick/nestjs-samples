@@ -1,41 +1,37 @@
 import { NatsMockClient } from './nats.client';
-import { Observable, Subject } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
 
 export class NatsMockServer {
-  private readonly delay: number;
+  private readonly clients: Array<Subject<any>> = [];
+  private readonly topics: Map<string, Subject<any>> = new Map();
 
-  private readonly topics: Map<string, Observable<any>> = new Map();
-
-  constructor(delay: number = 1000) {
-    this.delay = delay;
+  public createConnection(): NatsMockClient {
+    const id: number = this.clients.length;
+    const client = new NatsMockClient(id, this);
+    this.clients.push(new Subject());
+    setTimeout(() => client.emit('connect'), 1000);
+    return client;
   }
 
-  public connect(client: NatsMockClient) {
-    console.log(`[${NatsMockServer.name}] - connect`);
-    setTimeout(() => client.emit('connect'), this.delay);
+  public publish(replyTo: string, message: any) {
+    const client: Subject<any> = this.clients[replyTo];
+    client.next(message);
   }
 
-  public publish(queue: string | undefined, message: any) {
-    console.log(`[${NatsMockServer.name}] - publish | queue: ${queue} | message : ${JSON.stringify(message)}`);
+  public request(topicName: string, message: any, replyTo: any): Observable<any> {
+    const topic: Subject<any> = this.topics.get(topicName);
+    topic.next([message, replyTo]);
+    return this.clients[replyTo];
   }
 
-  public request(topicName: string, packet: any, handler: (...args: any[]) => void) {
-    console.log(`[${NatsMockServer.name}] - subscribe | topic : ${topicName} | packet : ${packet}`);
-    const topic = this.topics.get(topicName) as Subject<any>;
-    const subscription = topic.subscribe(handler);
-    setTimeout(() => topic.next(packet), this.delay);
-    return subscription;
-  }
-
-  public subscribe(topicName: string, handler: (...args: any[]) => void) {
-    console.log(`[${NatsMockServer.name}] - subscribe | topic : ${topicName} | handler : ${handler}`);
-    const topic = (this.topics.has(topicName) ? this.topics.get(topicName) : this.createAndSaveTopic(topicName)) as Subject<any>;
-    topic.subscribe(handler);
-  }
-
-  private createAndSaveTopic(name: string): Observable<any> {
-    const topic: Observable<any> = new Subject();
-    this.topics.set(name, topic);
+  public subscribe(topicName: string): Observable<any> {
+    let topic: Subject<any>;
+    if (this.topics.has(topicName)) {
+      topic = this.topics.get(topicName);
+    } else {
+      topic = new Subject<any>();
+      this.topics.set(topicName, topic);
+    }
     return topic;
   }
 }
